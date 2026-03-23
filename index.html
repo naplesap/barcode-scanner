@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <title>Side-Scan Barcode Reader</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        /* Setup Screen */
+        #setup-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        #setup-screen.hide {
+            display: none;
+        }
+        
+        .setup-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #4CAF50;
+        }
+        
+        .setup-subtitle {
+            font-size: 16px;
+            color: #999;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+        
+        .scan-direction {
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .direction-label {
+            font-size: 14px;
+            color: #999;
+            margin-bottom: 20px;
+        }
+        
+        .direction-options {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .direction-btn {
+            flex: 1;
+            background: #333;
+            border: 3px solid #444;
+            color: white;
+            padding: 40px 20px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .direction-btn.selected {
+            background: #1a4d2e;
+            border-color: #4CAF50;
+            transform: scale(1.05);
+        }
+        
+        .direction-icon {
+            font-size: 48px;
+        }
+        
+        .continue-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 18px 40px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .continue-btn:disabled {
+            background: #333;
+            cursor: not-allowed;
+        }
+        
+        .continue-btn:not(:disabled):active {
+            transform: scale(0.95);
+        }
+        
+        /* Camera View */
+        #camera-view {
+            display: none;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+        }
+        
+        #camera-view.show {
+            display: flex;
+        }
+        
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        #targeting-guide {
+            position: absolute;
+            left: 10%;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 80%;
+            height: 120px;
+            border: 3px solid #4CAF50;
+            border-radius: 8px;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+        }
+        
+        #targeting-guide.scanning {
+            border-color: #FFC107;
+            animation: pulse 1s infinite;
+        }
+        
+        /* Directional indicator */
+        .scan-direction-indicator {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 48px;
+            animation: slide 1.5s infinite;
+        }
+        
+        .scan-direction-indicator.from-left {
+            left: 5%;
+            animation-name: slideFromLeft;
+        }
+        
+        .scan-direction-indicator.from-right {
+            right: 5%;
+            animation-name: slideFromRight;
+        }
+        
+        @keyframes slideFromLeft {
+            0%, 100% { transform: translateY(-50%) translateX(0); opacity: 0.5; }
+            50% { transform: translateY(-50%) translateX(20px); opacity: 1; }
+        }
+        
+        @keyframes slideFromRight {
+            0%, 100% { transform: translateY(-50%) translateX(0); opacity: 0.5; }
+            50% { transform: translateY(-50%) translateX(-20px); opacity: 1; }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        #status-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 12px 24px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        
+        #change-side-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #666;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        /* Verification & Results (same as before) */
+        #verification-screen, #results-screen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1a1a1a;
+            z-index: 100;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        #verification-screen.show, #results-screen.show {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .screen-header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #4CAF50;
+        }
+        
+        .question-card {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .label {
+            font-size: 14px;
+            color: #999;
+            margin-bottom: 10px;
+        }
+        
+        .value-display {
+            font-size: 28px;
+            font-family: monospace;
+            color: #FFC107;
+            padding: 15px;
+            background: rgba(255, 193, 7, 0.1);
+            border-radius: 8px;
+            text-align: center;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            flex: 1;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        button:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-secondary {
+            background: #666;
+        }
+        
+        .btn-danger {
+            background: #f44336;
+        }
+        
+        #manual-entry {
+            display: none;
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        #manual-entry.show {
+            display: block;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            font-size: 14px;
+            color: #999;
+            margin-bottom: 8px;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid #444;
+            background: #1a1a1a;
+            color: white;
+            border-radius: 8px;
+            font-size: 18px;
+            font-family: monospace;
+            letter-spacing: 2px;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        
+        .input-error {
+            color: #f44336;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        .result-section {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .result-value {
+            font-size: 24px;
+            font-family: monospace;
+            color: #fff;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+        
+        .result-value.highlight {
+            font-size: 32px;
+            color: #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
+            font-weight: 600;
+            padding: 16px;
+        }
+        
+        .flash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        .flash.active {
+            animation: flash 0.3s;
+        }
+        
+        @keyframes flash {
+            0% { opacity: 0; }
+            50% { opacity: 0.8; }
+            100% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Setup Screen -->
+    <div id="setup-screen">
+        <div class="setup-title">📱 Barcode Scanner Setup</div>
+        <div class="setup-subtitle">
+            Which side will you be scanning from?<br>
+            This helps us correct perspective automatically.
+        </div>
+        
+        <div class="scan-direction">
+            <div class="direction-label">Select your scanning position:</div>
+            <div class="direction-options">
+                <button class="direction-btn" data-direction="left">
+                    <div class="direction-icon">👈</div>
+                    <div>From Left</div>
+                </button>
+                <button class="direction-btn" data-direction="right">
+                    <div class="direction-icon">👉</div>
+                    <div>From Right</div>
+                </button>
+            </div>
+        </div>
+        
+        <button class="continue-btn" id="continue-btn" disabled>Continue</button>
+    </div>
+    
+    <!-- Camera View -->
+    <div id="camera-view">
+        <video id="video" playsinline autoplay></video>
+        <div id="targeting-guide" class="scanning"></div>
+        <div class="scan-direction-indicator" id="direction-indicator"></div>
+        <div id="status-overlay">📱 Point camera at barcode</div>
+        <button id="change-side-btn">Change Side</button>
+    </div>
+    
+    <!-- Verification Screen -->
+    <div id="verification-screen">
+        <div class="screen-header">✓ Barcode Detected</div>
+        
+        <div class="question-card">
+            <div class="label">Are the first 14 digits correct?</div>
+            <div class="value-display" id="detected-first-14">—</div>
+            
+            <div class="button-group">
+                <button id="verify-yes-btn">✓ Yes, Correct</button>
+                <button id="verify-no-btn" class="btn-secondary">✗ No, Let Me Edit</button>
+            </div>
+        </div>
+        
+        <div id="manual-entry">
+            <div class="label">Enter the correct first 14 digits:</div>
+            <div class="input-group">
+                <input type="text" id="manual-first-14" placeholder="12345678901234" pattern="[0-9]{14}" maxlength="14">
+                <div class="input-error" id="manual-error"></div>
+            </div>
+            <div class="button-group">
+                <button id="manual-submit-btn">Continue</button>
+                <button id="manual-cancel-btn" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
+        
+        <button id="rescan-btn" class="btn-danger" style="margin-top: auto;">🔄 Rescan Barcode</button>
+    </div>
+    
+    <!-- Results Screen -->
+    <div id="results-screen">
+        <div class="screen-header">📋 Scan Complete</div>
+        
+        <div class="result-section">
+            <div class="label">First 14 digits:</div>
+            <div class="result-value" id="result-first-14">—</div>
+        </div>
+        
+        <div class="result-section">
+            <div class="label">Last 10 digits:</div>
+            <div class="result-value highlight" id="result-last-10">—</div>
+        </div>
+        
+        <div class="result-section">
+            <div class="label">Full 24-digit barcode:</div>
+            <div class="result-value" id="result-full-24">—</div>
+        </div>
+        
+        <div class="button-group">
+            <button id="copy-full-btn">📋 Copy Full (24)</button>
+            <button id="copy-last10-btn" class="btn-secondary">📋 Copy Last 10</button>
+        </div>
+        
+        <button id="scan-another-btn" class="btn-secondary" style="margin-top: 15px;">🔄 Scan Another Barcode</button>
+    </div>
+    
+    <div class="flash" id="flash"></div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
+    <script>
+        // Configuration
+        let scanDirection = localStorage.getItem('scanDirection') || null;
+        
+        // State
+        let state = {
+            scanning: false,
+            scannedData: null,
+            verifiedFirst14: null,
+            full24: null
+        };
+        
+        // Elements
+        const setupScreen = document.getElementById('setup-screen');
+        const cameraView = document.getElementById('camera-view');
+        const verificationScreen = document.getElementById('verification-screen');
+        const resultsScreen = document.getElementById('results-screen');
+        const video = document.getElementById('video');
+        const targetingGuide = document.getElementById('targeting-guide');
+        const directionIndicator = document.getElementById('direction-indicator');
+        const statusOverlay = document.getElementById('status-overlay');
+        const changeSideBtn = document.getElementById('change-side-btn');
+        const flash = document.getElementById('flash');
+        
+        // Setup screen elements
+        const directionBtns = document.querySelectorAll('.direction-btn');
+        const continueBtn = document.getElementById('continue-btn');
+        
+        // Verification screen elements
+        const detectedFirst14 = document.getElementById('detected-first-14');
+        const verifyYesBtn = document.getElementById('verify-yes-btn');
+        const verifyNoBtn = document.getElementById('verify-no-btn');
+        const rescanBtn = document.getElementById('rescan-btn');
+        const manualEntry = document.getElementById('manual-entry');
+        const manualFirst14Input = document.getElementById('manual-first-14');
+        const manualError = document.getElementById('manual-error');
+        const manualSubmitBtn = document.getElementById('manual-submit-btn');
+        const manualCancelBtn = document.getElementById('manual-cancel-btn');
+        
+        // Results screen elements
+        const resultFirst14 = document.getElementById('result-first-14');
+        const resultLast10 = document.getElementById('result-last-10');
+        const resultFull24 = document.getElementById('result-full-24');
+        const copyFullBtn = document.getElementById('copy-full-btn');
+        const copyLast10Btn = document.getElementById('copy-last10-btn');
+        const scanAnotherBtn = document.getElementById('scan-another-btn');
+        
+        let codeReader = null;
+        let processingCanvas = null;
+        let processingCtx = null;
+        
+        // Setup: Direction selection
+        directionBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                directionBtns.forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                scanDirection = btn.dataset.direction;
+                continueBtn.disabled = false;
+            });
+        });
+        
+        // Setup: Continue button
+        continueBtn.addEventListener('click', () => {
+            localStorage.setItem('scanDirection', scanDirection);
+            setupScreen.classList.add('hide');
+            init();
+        });
+        
+        // Change side button
+        changeSideBtn.addEventListener('click', () => {
+            state.scanning = false;
+            cameraView.classList.remove('show');
+            setupScreen.classList.remove('hide');
+            directionBtns.forEach(b => b.classList.remove('selected'));
+            continueBtn.disabled = true;
+        });
+        
+        // If direction already set, skip setup
+        if (scanDirection) {
+            setupScreen.classList.add('hide');
+            init();
+        }
+        
+        // Initialize camera
+        async function init() {
+            try {
+                codeReader = new ZXing.BrowserMultiFormatReader();
+                
+                // Setup processing canvas
+                processingCanvas = document.createElement('canvas');
+                processingCtx = processingCanvas.getContext('2d');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
+                });
+                
+                video.srcObject = stream;
+                
+                // Set up direction indicator
+                directionIndicator.className = `scan-direction-indicator from-${scanDirection}`;
+                directionIndicator.textContent = scanDirection === 'left' ? '👈' : '👉';
+                
+                startScanning();
+                
+            } catch (error) {
+                console.error('Camera error:', error);
+                statusOverlay.textContent = '❌ Camera access denied';
+            }
+        }
+        
+        function startScanning() {
+            state.scanning = true;
+            state.scannedData = null;
+            
+            cameraView.classList.add('show');
+            verificationScreen.classList.remove('show');
+            resultsScreen.classList.remove('show');
+            manualEntry.classList.remove('show');
+            
+            statusOverlay.textContent = `📱 Scan from ${scanDirection} side`;
+            targetingGuide.classList.add('scanning');
+            
+            scanFrame();
+        }
+        
+        async function scanFrame() {
+            if (!state.scanning) return;
+            
+            try {
+                // Try multiple strategies
+                let result = null;
+                
+                // Strategy 1: Direct decode
+                try {
+                    result = await codeReader.decodeFromVideoElement(video);
+                } catch (e) {
+                    // Try enhanced methods
+                }
+                
+                // Strategy 2: Perspective correction for selected side
+                if (!result) {
+                    result = await tryWithPerspectiveCorrection();
+                }
+                
+                if (result) {
+                    handleBarcodeDetected(result.text);
+                }
+            } catch (error) {
+                // No barcode in frame
+            }
+            
+            if (state.scanning) {
+                requestAnimationFrame(scanFrame);
+            }
+        }
+        
+        async function tryWithPerspectiveCorrection() {
+            // Capture current frame
+            processingCanvas.width = video.videoWidth;
+            processingCanvas.height = video.videoHeight;
+            processingCtx.drawImage(video, 0, 0);
+            
+            // Apply perspective correction based on scan direction
+            const corrected = applyPerspectiveCorrection(scanDirection);
+            
+            // Try to decode corrected image
+            try {
+                return await codeReader.decodeFromCanvas(corrected);
+            } catch (e) {
+                return null;
+            }
+        }
+        
+        function applyPerspectiveCorrection(direction) {
+            const canvas = processingCanvas;
+            const ctx = processingCtx;
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            // Create output canvas
+            const output = document.createElement('canvas');
+            output.width = width;
+            output.height = height;
+            const outCtx = output.getContext('2d');
+            
+            // Apply horizontal perspective transform
+            // This corrects for viewing angle from left or right
+            
+            if (direction === 'left') {
+                // Scanning from left: right side appears compressed
+                // Stretch the right side
+                for (let y = 0; y < height; y++) {
+                    const sourceY = y;
+                    const factor = 1 + (y / height) * 0.15; // Gradual stretch
+                    
+                    for (let x = 0; x < width; x++) {
+                        const sourceX = x / factor;
+                        if (sourceX >= 0 && sourceX < width) {
+                            const pixel = ctx.getImageData(Math.floor(sourceX), sourceY, 1, 1);
+                            outCtx.putImageData(pixel, x, y);
+                        }
+                    }
+                }
+            } else {
+                // Scanning from right: left side appears compressed
+                // Stretch the left side
+                for (let y = 0; y < height; y++) {
+                    const sourceY = y;
+                    const factor = 1 + ((height - y) / height) * 0.15;
+                    
+                    for (let x = 0; x < width; x++) {
+                        const sourceX = width - ((width - x) / factor);
+                        if (sourceX >= 0 && sourceX < width) {
+                            const pixel = ctx.getImageData(Math.floor(sourceX), sourceY, 1, 1);
+                            outCtx.putImageData(pixel, x, y);
+                        }
+                    }
+                }
+            }
+            
+            return output;
+        }
+        
+        function handleBarcodeDetected(barcode) {
+            barcode = barcode.replace(/\D/g, '');
+            
+            if (barcode.length < 14) {
+                statusOverlay.textContent = `⚠️ Too short (${barcode.length} digits)`;
+                return;
+            }
+            
+            state.scanning = false;
+            state.scannedData = barcode;
+            
+            flash.classList.add('active');
+            setTimeout(() => flash.classList.remove('active'), 300);
+            playBeep();
+            if (navigator.vibrate) navigator.vibrate(50);
+            
+            showVerificationScreen(barcode);
+        }
+        
+        function showVerificationScreen(barcode) {
+            const first14 = barcode.substring(0, 14);
+            const formatted = `${first14.substring(0, 4)}-${first14.substring(4, 11)}-${first14.substring(11, 14)}`;
+            
+            detectedFirst14.textContent = formatted;
+            cameraView.classList.remove('show');
+            verificationScreen.classList.add('show');
+        }
+        
+        verifyYesBtn.addEventListener('click', () => {
+            const first14 = state.scannedData.substring(0, 14);
+            processWithVerifiedFirst14(first14);
+        });
+        
+        verifyNoBtn.addEventListener('click', () => {
+            manualEntry.classList.add('show');
+            manualFirst14Input.focus();
+        });
+        
+        manualSubmitBtn.addEventListener('click', () => {
+            const manual = manualFirst14Input.value.trim();
+            
+            if (manual.length !== 14) {
+                manualError.textContent = 'Must be exactly 14 digits';
+                return;
+            }
+            
+            if (!/^\d+$/.test(manual)) {
+                manualError.textContent = 'Must contain only digits (0-9)';
+                return;
+            }
+            
+            manualError.textContent = '';
+            processWithVerifiedFirst14(manual);
+        });
+        
+        manualCancelBtn.addEventListener('click', () => {
+            manualEntry.classList.remove('show');
+            manualFirst14Input.value = '';
+            manualError.textContent = '';
+        });
+        
+        function processWithVerifiedFirst14(first14) {
+            state.verifiedFirst14 = first14;
+            
+            let last10 = null;
+            
+            if (state.scannedData.length >= 24) {
+                last10 = state.scannedData.substring(14, 24);
+            } else {
+                last10 = state.scannedData.substring(14) + '?'.repeat(24 - state.scannedData.length);
+            }
+            
+            const full24 = first14 + last10;
+            state.full24 = full24;
+            
+            showResults(first14, last10, full24);
+        }
+        
+        function showResults(first14, last10, full24) {
+            const formatFirst14 = `${first14.substring(0, 4)}-${first14.substring(4, 11)}-${first14.substring(11, 14)}`;
+            
+            resultFirst14.textContent = formatFirst14;
+            resultLast10.textContent = last10;
+            resultFull24.textContent = full24;
+            
+            verificationScreen.classList.remove('show');
+            resultsScreen.classList.add('show');
+            
+            playSuccessBeep();
+            if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+        }
+        
+        rescanBtn.addEventListener('click', () => startScanning());
+        scanAnotherBtn.addEventListener('click', () => startScanning());
+        
+        copyFullBtn.addEventListener('click', () => {
+            copyToClipboard(state.full24, copyFullBtn);
+        });
+        
+        copyLast10Btn.addEventListener('click', () => {
+            const last10 = state.full24.substring(14, 24);
+            copyToClipboard(last10, copyLast10Btn);
+        });
+        
+        function copyToClipboard(text, button) {
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = button.textContent;
+                button.textContent = '✓ Copied!';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 2000);
+            });
+        }
+        
+        function playBeep() {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            
+            osc.frequency.value = 660;
+            osc.type = 'sine';
+            
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+            
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.1);
+        }
+        
+        function playSuccessBeep() {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            [880, 1100].forEach((freq, i) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                osc.frequency.value = freq;
+                osc.type = 'sine';
+                
+                const startTime = ctx.currentTime + (i * 0.1);
+                gain.gain.setValueAtTime(0.2, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.1);
+                
+                osc.start(startTime);
+                osc.stop(startTime + 0.1);
+            });
+        }
+    </script>
+</body>
+</html>
