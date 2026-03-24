@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>ITF Barcode Scanner - Grid Enhanced</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+        
+        #container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 20px 0;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #4CAF50;
+        }
+        
+        .section {
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #4CAF50;
+        }
+        
+        .upload-area {
+            border: 3px dashed #444;
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-area:hover {
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.05);
+        }
+        
+        #file-input {
+            display: none;
+        }
+        
+        .preview-container {
+            position: relative;
+            display: none;
+            margin: 20px 0;
+            touch-action: none;
+        }
+        
+        .preview-container.show {
+            display: block;
+        }
+        
+        .canvas-wrapper {
+            position: relative;
+            overflow: auto;
+            max-height: 600px;
+            -webkit-overflow-scrolling: touch;
+            background: #000;
+            border-radius: 8px;
+        }
+        
+        #preview-canvas {
+            display: block;
+            margin: 0 auto;
+        }
+        
+        .corner-point {
+            position: absolute;
+            width: 44px;
+            height: 44px;
+            background: #4CAF50;
+            border: 4px solid white;
+            border-radius: 50%;
+            cursor: move;
+            transform: translate(-50%, -50%);
+            touch-action: none;
+            z-index: 10;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+        }
+        
+        .corner-point:active {
+            background: #66BB6A;
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+        
+        .corner-label {
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            font-weight: 600;
+            background: rgba(0,0,0,0.9);
+            padding: 4px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+            color: #4CAF50;
+        }
+        
+        .grid-toggle {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+            align-items: center;
+        }
+        
+        .toggle-btn {
+            padding: 10px 20px;
+            background: #444;
+            border: 2px solid #666;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .toggle-btn.active {
+            background: #1a4d2e;
+            border-color: #4CAF50;
+            color: #4CAF50;
+        }
+        
+        .zoom-controls {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+            align-items: center;
+        }
+        
+        .zoom-btn {
+            padding: 12px 20px;
+            background: #444;
+            border: 1px solid #666;
+            border-radius: 6px;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .zoom-level {
+            flex: 1;
+            text-align: center;
+            font-size: 14px;
+            color: #999;
+        }
+        
+        .rotation-controls {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .rotate-btn {
+            flex: 1;
+            padding: 10px;
+            background: #444;
+            border: 1px solid #666;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        button {
+            width: 100%;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+        
+        .btn-secondary {
+            background: #666;
+        }
+        
+        .btn-warning {
+            background: #ff9800;
+        }
+        
+        .btn-info {
+            background: #2196F3;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .button-group button {
+            flex: 1;
+        }
+        
+        .processing {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        
+        .processing.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #444;
+            border-top: 4px solid #4CAF50;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .preview-result {
+            display: none;
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .preview-result.show {
+            display: block;
+        }
+        
+        .preview-result h3 {
+            color: #2196F3;
+            margin-bottom: 15px;
+        }
+        
+        #corrected-preview {
+            width: 100%;
+            border-radius: 8px;
+            margin: 15px 0;
+            background: #000;
+        }
+        
+        .error-message {
+            background: rgba(244, 67, 54, 0.1);
+            border: 2px solid #f44336;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .error-message.show {
+            display: block;
+        }
+        
+        .error-message h3 {
+            color: #f44336;
+            margin-bottom: 15px;
+        }
+        
+        .manual-entry {
+            display: none;
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .manual-entry.show {
+            display: block;
+        }
+        
+        .manual-entry h3 {
+            color: #ff9800;
+            margin-bottom: 15px;
+        }
+        
+        .manual-entry-photo {
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            background: #000;
+        }
+        
+        .manual-entry input {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid #666;
+            border-radius: 8px;
+            color: white;
+            margin-bottom: 15px;
+        }
+        
+        .manual-entry input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        
+        .manual-entry .hint {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 15px;
+        }
+        
+        .manual-entry .text-region-label {
+            font-size: 13px;
+            color: #4CAF50;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .results {
+            display: none;
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .results.show {
+            display: block;
+        }
+        
+        .result-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .result-label {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 5px;
+        }
+        
+        .result-value {
+            font-size: 20px;
+            font-family: monospace;
+            color: #fff;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            word-break: break-all;
+        }
+        
+        .result-value.highlight {
+            font-size: 28px;
+            color: #4CAF50;
+            font-weight: 600;
+        }
+        
+        .tips {
+            background: rgba(76, 175, 80, 0.1);
+            border-left: 4px solid #4CAF50;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .tips h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #4CAF50;
+        }
+        
+        .tips ul {
+            margin-left: 20px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        .instruction {
+            background: rgba(33, 150, 243, 0.1);
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .instruction.show {
+            display: block;
+        }
+        
+        .instruction h3 {
+            color: #2196F3;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        .instruction p {
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div class="header">
+            <h1>📸 ITF Barcode Scanner</h1>
+            <p>Grid-Enhanced Edition</p>
+        </div>
+        
+        <div class="tips">
+            <h3>✨ Enhanced Grid Features:</h3>
+            <ul>
+                <li><strong>Vertical Lines:</strong> 24 lines matching barcode digits</li>
+                <li><strong>Horizontal Lines:</strong> Guide for top/bottom alignment</li>
+                <li><strong>Extended Capture:</strong> Grid extends to capture printed text below</li>
+                <li><strong>Manual Entry:</strong> Shows straightened text area for easy reading</li>
+            </ul>
+        </div>
+        
+        <div class="section">
+            <h2>📤 Upload Barcode Photo</h2>
+            
+            <div class="upload-area" id="upload-area">
+                <div style="font-size: 48px; margin-bottom: 15px;">📷</div>
+                <div style="font-size: 16px; margin-bottom: 10px;">Tap to select photo</div>
+                <div style="font-size: 12px; color: #999;">Any angle - grid covers barcode + text!</div>
+            </div>
+            
+            <input type="file" id="file-input" accept="image/*">
+        </div>
+        
+        <div class="instruction" id="instruction">
+            <h3>📐 Grid Alignment Guide:</h3>
+            <p><strong>1.</strong> Drag corners to cover BOTH barcode bars AND printed text below</p>
+            <p><strong>2.</strong> Top edge: Align with top of barcode</p>
+            <p><strong>3.</strong> Bottom edge: Extend below to cover printed digits</p>
+            <p><strong>4.</strong> Vertical lines: Match with barcode bars</p>
+            <p><strong>5.</strong> Horizontal lines: Help with vertical alignment</p>
+        </div>
+        
+        <div class="grid-toggle" id="grid-toggle-controls" style="display: none;">
+            <button class="toggle-btn active" id="grid-toggle">
+                ◫ Grid: ON
+            </button>
+            <span style="flex: 1; font-size: 12px; color: #999;">
+                Shows barcode structure + text region
+            </span>
+        </div>
+        
+        <div class="zoom-controls" id="zoom-controls" style="display: none;">
+            <button class="zoom-btn" id="zoom-out">−</button>
+            <div class="zoom-level" id="zoom-level">Zoom: 100%</div>
+            <button class="zoom-btn" id="zoom-in">+</button>
+        </div>
+        
+        <div class="rotation-controls" id="rotation-controls" style="display: none;">
+            <button class="rotate-btn" id="rotate-left">↺ Left</button>
+            <button class="rotate-btn" id="rotate-right">Right ↻</button>
+            <button class="rotate-btn" id="flip-h">⇄ Flip</button>
+        </div>
+        
+        <div class="preview-container" id="preview-container">
+            <div class="canvas-wrapper" id="canvas-wrapper">
+                <canvas id="preview-canvas"></canvas>
+                <div class="corner-point" id="corner-tl">
+                    <div class="corner-label">Top Left</div>
+                </div>
+                <div class="corner-point" id="corner-tr">
+                    <div class="corner-label">Top Right</div>
+                </div>
+                <div class="corner-point" id="corner-bl">
+                    <div class="corner-label">Bottom Left</div>
+                </div>
+                <div class="corner-point" id="corner-br">
+                    <div class="corner-label">Bottom Right</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="action-buttons" style="display: none;">
+            <div class="button-group">
+                <button id="preview-btn" class="btn-info">👁️ Preview</button>
+                <button id="reset-corners-btn" class="btn-warning">🔄 Reset</button>
+            </div>
+            <button id="analyze-btn">🔍 Analyze Barcode</button>
+            <button id="retake-btn" class="btn-secondary">📸 Different Photo</button>
+        </div>
+        
+        <div class="preview-result" id="preview-result">
+            <h3>👁️ Preview: Straightened</h3>
+            <p style="margin-bottom: 15px; color: #999;">Barcode and text area:</p>
+            <img id="corrected-preview" alt="Corrected preview">
+            <button id="looks-good-btn">✓ Analyze Now</button>
+            <button id="adjust-more-btn" class="btn-secondary">← Adjust</button>
+        </div>
+        
+        <div class="processing" id="processing">
+            <div class="spinner"></div>
+            <div>Analyzing barcode...</div>
+            <div style="font-size: 12px; color: #999; margin-top: 10px;">Trying multiple strategies...</div>
+        </div>
+        
+        <div class="error-message" id="error-message">
+            <h3>❌ Could not decode barcode</h3>
+            <p style="margin-bottom: 15px;">Try:</p>
+            <ul style="margin: 15px 0 15px 20px; line-height: 1.8;">
+                <li>Extend grid bottom to capture more of the barcode</li>
+                <li>Align vertical lines precisely with bars</li>
+                <li>Zoom in for corner precision</li>
+                <li>Enter first 14 digits manually (you'll see the text!)</li>
+            </ul>
+            <div class="button-group">
+                <button id="manual-entry-btn" class="btn-warning">✏️ Manual Entry</button>
+                <button id="try-again-btn" class="btn-secondary">🔄 Adjust Grid</button>
+            </div>
+        </div>
+        
+        <div class="manual-entry" id="manual-entry">
+            <h3>✏️ Manual Entry</h3>
+            <p style="margin-bottom: 5px; color: #999;">Your straightened barcode with text below:</p>
+            <div class="text-region-label">↓ Read the printed numbers here ↓</div>
+            
+            <img id="manual-entry-photo" class="manual-entry-photo" alt="Straightened barcode with text">
+            
+            <div class="hint">Type the 14 digits from the printed text: XXXX-XXXXXXX-X-XXX</div>
+            
+            <input type="text" 
+                   id="manual-digits" 
+                   placeholder="Example: 5048-1754673-5-000"
+                   maxlength="17">
+            
+            <div class="button-group">
+                <button id="process-manual-btn">✓ Save Digits</button>
+                <button id="cancel-manual-btn" class="btn-secondary">✗ Cancel</button>
+            </div>
+        </div>
+        
+        <div class="results" id="results">
+            <h2 style="color: #4CAF50; margin-bottom: 20px;">✓ Success!</h2>
+            
+            <div class="result-item">
+                <div class="result-label">First 14 digits:</div>
+                <div class="result-value" id="result-first-14">—</div>
+            </div>
+            
+            <div class="result-item">
+                <div class="result-label">Last 10 digits:</div>
+                <div class="result-value highlight" id="result-last-10">—</div>
+            </div>
+            
+            <div class="result-item">
+                <div class="result-label">Full 24-digit barcode:</div>
+                <div class="result-value" id="result-full-24">—</div>
+            </div>
+            
+            <div class="button-group">
+                <button id="copy-full-btn">📋 Copy Full (24)</button>
+                <button id="copy-last10-btn" class="btn-secondary">📋 Copy Last 10</button>
+            </div>
+            
+            <button id="scan-another-btn" class="btn-secondary">📸 Scan Another</button>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
+    <script>
+        let codeReader;
+        let originalImage = null;
+        let canvas, ctx;
+        let rotation = 0;
+        let flipH = false;
+        let zoomLevel = 1;
+        let showGrid = true;
+        
+        const GRID_VERTICAL_LINES = 24;
+        const GRID_HORIZONTAL_LINES = 4; // Top, upper-mid, lower-mid, bottom
+        
+        // Corners now extend to capture text region below barcode
+        let corners = {
+            tl: { x: 0.1, y: 0.3 },   // Top of barcode
+            tr: { x: 0.9, y: 0.3 },
+            bl: { x: 0.1, y: 0.75 },  // Extended to capture text
+            br: { x: 0.9, y: 0.75 }
+        };
+        let dragging = null;
+        
+        // Elements
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const previewContainer = document.getElementById('preview-container');
+        const canvasWrapper = document.getElementById('canvas-wrapper');
+        const previewCanvas = document.getElementById('preview-canvas');
+        const instruction = document.getElementById('instruction');
+        const gridToggleControls = document.getElementById('grid-toggle-controls');
+        const gridToggleBtn = document.getElementById('grid-toggle');
+        const zoomControls = document.getElementById('zoom-controls');
+        const rotationControls = document.getElementById('rotation-controls');
+        const actionButtons = document.getElementById('action-buttons');
+        const processing = document.getElementById('processing');
+        const errorMessage = document.getElementById('error-message');
+        const manualEntry = document.getElementById('manual-entry');
+        const manualEntryPhoto = document.getElementById('manual-entry-photo');
+        const previewResult = document.getElementById('preview-result');
+        const results = document.getElementById('results');
+        
+        const zoomInBtn = document.getElementById('zoom-in');
+        const zoomOutBtn = document.getElementById('zoom-out');
+        const zoomLevelText = document.getElementById('zoom-level');
+        const previewBtn = document.getElementById('preview-btn');
+        const looksGoodBtn = document.getElementById('looks-good-btn');
+        const adjustMoreBtn = document.getElementById('adjust-more-btn');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const resetCornersBtn = document.getElementById('reset-corners-btn');
+        const retakeBtn = document.getElementById('retake-btn');
+        
+        const manualEntryBtn = document.getElementById('manual-entry-btn');
+        const tryAgainBtn = document.getElementById('try-again-btn');
+        const manualDigits = document.getElementById('manual-digits');
+        const processManualBtn = document.getElementById('process-manual-btn');
+        const cancelManualBtn = document.getElementById('cancel-manual-btn');
+        
+        const cornerPoints = {
+            tl: document.getElementById('corner-tl'),
+            tr: document.getElementById('corner-tr'),
+            bl: document.getElementById('corner-bl'),
+            br: document.getElementById('corner-br')
+        };
+        
+        // Initialize
+        codeReader = new ZXing.BrowserMultiFormatReader();
+        canvas = previewCanvas;
+        ctx = canvas.getContext('2d');
+        
+        // Upload
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                originalImage = new Image();
+                originalImage.onload = () => {
+                    rotation = 0;
+                    flipH = false;
+                    zoomLevel = 1;
+                    showGrid = true;
+                    setupCanvas();
+                    resetCorners();
+                    drawPreview();
+                    
+                    previewContainer.classList.add('show');
+                    instruction.classList.add('show');
+                    gridToggleControls.style.display = 'flex';
+                    zoomControls.style.display = 'flex';
+                    rotationControls.style.display = 'flex';
+                    actionButtons.style.display = 'block';
+                    errorMessage.classList.remove('show');
+                    manualEntry.classList.remove('show');
+                    previewResult.classList.remove('show');
+                    results.classList.remove('show');
+                    
+                    updateZoomDisplay();
+                    updateGridToggle();
+                };
+                originalImage.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function setupCanvas() {
+            canvas.width = originalImage.width;
+            canvas.height = originalImage.height;
+            updateCornerPositions();
+        }
+        
+        function resetCorners() {
+            corners = {
+                tl: { x: 0.1, y: 0.3 },
+                tr: { x: 0.9, y: 0.3 },
+                bl: { x: 0.1, y: 0.75 },  // Extended lower
+                br: { x: 0.9, y: 0.75 }
+            };
+            updateCornerPositions();
+            drawPreview();
+        }
+        
+        function updateCornerPositions() {
+            Object.keys(corners).forEach(key => {
+                const point = cornerPoints[key];
+                point.style.left = (corners[key].x * canvas.width * zoomLevel) + 'px';
+                point.style.top = (corners[key].y * canvas.height * zoomLevel) + 'px';
+            });
+        }
+        
+        function drawPreview() {
+            canvas.width = originalImage.width * zoomLevel;
+            canvas.height = originalImage.height * zoomLevel;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw image
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(rotation * Math.PI / 180);
+            if (flipH) ctx.scale(-1, 1);
+            ctx.drawImage(originalImage, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
+            ctx.restore();
+            
+            // Draw grid
+            if (showGrid) {
+                drawEnhancedGrid();
+            } else {
+                drawSimpleBorder();
+            }
+            
+            updateCornerPositions();
+        }
+        
+        function drawSimpleBorder() {
+            const w = canvas.width;
+            const h = canvas.height;
+            
+            ctx.strokeStyle = '#4CAF50';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(corners.tl.x * w, corners.tl.y * h);
+            ctx.lineTo(corners.tr.x * w, corners.tr.y * h);
+            ctx.lineTo(corners.br.x * w, corners.br.y * h);
+            ctx.lineTo(corners.bl.x * w, corners.bl.y * h);
+            ctx.closePath();
+            ctx.stroke();
+        }
+        
+        function drawEnhancedGrid() {
+            const w = canvas.width;
+            const h = canvas.height;
+            
+            const tl = { x: corners.tl.x * w, y: corners.tl.y * h };
+            const tr = { x: corners.tr.x * w, y: corners.tr.y * h };
+            const bl = { x: corners.bl.x * w, y: corners.bl.y * h };
+            const br = { x: corners.br.x * w, y: corners.br.y * h };
+            
+            // Outer rectangle (bright green)
+            ctx.strokeStyle = '#4CAF50';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(tl.x, tl.y);
+            ctx.lineTo(tr.x, tr.y);
+            ctx.lineTo(br.x, br.y);
+            ctx.lineTo(bl.x, bl.y);
+            ctx.closePath();
+            ctx.stroke();
+            
+            // Vertical grid lines (barcode digits)
+            ctx.strokeStyle = 'rgba(76, 175, 80, 0.5)';
+            ctx.lineWidth = 1;
+            
+            for (let i = 0; i <= GRID_VERTICAL_LINES; i++) {
+                const t = i / GRID_VERTICAL_LINES;
+                const topX = tl.x + (tr.x - tl.x) * t;
+                const topY = tl.y + (tr.y - tl.y) * t;
+                const bottomX = bl.x + (br.x - bl.x) * t;
+                const bottomY = bl.y + (br.y - bl.y) * t;
+                
+                ctx.beginPath();
+                ctx.moveTo(topX, topY);
+                ctx.lineTo(bottomX, bottomY);
+                ctx.stroke();
+            }
+            
+            // Horizontal grid lines
+            ctx.strokeStyle = 'rgba(76, 175, 80, 0.4)';
+            ctx.lineWidth = 1;
+            
+            for (let i = 0; i <= GRID_HORIZONTAL_LINES; i++) {
+                const t = i / GRID_HORIZONTAL_LINES;
+                const leftX = tl.x + (bl.x - tl.x) * t;
+                const leftY = tl.y + (bl.y - tl.y) * t;
+                const rightX = tr.x + (br.x - tr.x) * t;
+                const rightY = tr.y + (br.y - tr.y) * t;
+                
+                // Make barcode region lines more visible
+                if (i <= 2) {  // Top half is barcode
+                    ctx.strokeStyle = 'rgba(76, 175, 80, 0.5)';
+                } else {  // Bottom half is text
+                    ctx.strokeStyle = 'rgba(255, 193, 7, 0.4)';  // Yellow-ish for text region
+                }
+                
+                ctx.beginPath();
+                ctx.moveTo(leftX, leftY);
+                ctx.lineTo(rightX, rightY);
+                ctx.stroke();
+            }
+            
+            // Add label for text region
+            const textRegionY = (bl.y + tl.y) * 0.65;
+            ctx.fillStyle = 'rgba(255, 193, 7, 0.8)';
+            ctx.font = 'bold 14px Arial';
+            ctx.fillText('TEXT REGION ↓', tl.x + 10, textRegionY);
+        }
+        
+        // Grid toggle
+        gridToggleBtn.addEventListener('click', () => {
+            showGrid = !showGrid;
+            updateGridToggle();
+            drawPreview();
+        });
+        
+        function updateGridToggle() {
+            if (showGrid) {
+                gridToggleBtn.classList.add('active');
+                gridToggleBtn.textContent = '◫ Grid: ON';
+            } else {
+                gridToggleBtn.classList.remove('active');
+                gridToggleBtn.textContent = '◫ Grid: OFF';
+            }
+        }
+        
+        // Zoom
+        zoomInBtn.addEventListener('click', () => {
+            zoomLevel = Math.min(3, zoomLevel + 0.25);
+            drawPreview();
+            updateZoomDisplay();
+        });
+        
+        zoomOutBtn.addEventListener('click', () => {
+            zoomLevel = Math.max(0.5, zoomLevel - 0.25);
+            drawPreview();
+            updateZoomDisplay();
+        });
+        
+        function updateZoomDisplay() {
+            zoomLevelText.textContent = `Zoom: ${Math.round(zoomLevel * 100)}%`;
+        }
+        
+        // Rotation
+        document.getElementById('rotate-left').addEventListener('click', () => {
+            rotation = (rotation - 90 + 360) % 360;
+            drawPreview();
+        });
+        
+        document.getElementById('rotate-right').addEventListener('click', () => {
+            rotation = (rotation + 90) % 360;
+            drawPreview();
+        });
+        
+        document.getElementById('flip-h').addEventListener('click', () => {
+            flipH = !flipH;
+            drawPreview();
+        });
+        
+        // Drag handlers
+        Object.keys(cornerPoints).forEach(key => {
+            const point = cornerPoints[key];
+            
+            point.addEventListener('mousedown', (e) => {
+                dragging = key;
+                e.preventDefault();
+            });
+            
+            point.addEventListener('touchstart', (e) => {
+                dragging = key;
+                e.preventDefault();
+            });
+        });
+        
+        document.addEventListener('mousemove', handleMove);
+        document.addEventListener('touchmove', handleMove);
+        document.addEventListener('mouseup', () => dragging = null);
+        document.addEventListener('touchend', () => dragging = null);
+        
+        function handleMove(e) {
+            if (!dragging) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            let clientX, clientY;
+            
+            if (e.type.startsWith('touch')) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            
+            const x = (clientX - rect.left) / rect.width;
+            const y = (clientY - rect.top) / rect.height;
+            
+            corners[dragging].x = Math.max(0, Math.min(1, x));
+            corners[dragging].y = Math.max(0, Math.min(1, y));
+            
+            drawPreview();
+        }
+        
+        // Reset
+        resetCornersBtn.addEventListener('click', resetCorners);
+        retakeBtn.addEventListener('click', reset);
+        tryAgainBtn.addEventListener('click', () => {
+            errorMessage.classList.remove('show');
+        });
+        
+        // Preview - creates full corrected image including text
+        previewBtn.addEventListener('click', () => {
+            const correctedCanvas = applyPerspectiveCorrection(300); // Taller to show text
+            document.getElementById('corrected-preview').src = correctedCanvas.toDataURL();
+            previewResult.classList.add('show');
+        });
+        
+        looksGoodBtn.addEventListener('click', () => {
+            analyzeBtn.click();
+        });
+        
+        adjustMoreBtn.addEventListener('click', () => {
+            previewResult.classList.remove('show');
+        });
+        
+        // Analyze - uses just barcode region
+        analyzeBtn.addEventListener('click', async () => {
+            processing.classList.add('show');
+            errorMessage.classList.remove('show');
+            previewResult.classList.remove('show');
+            results.classList.remove('show');
+            
+            try {
+                // Create high-contrast version for just barcode area
+                const barcodeCanvas = applyPerspectiveCorrection(150, 0.6); // Just top 60% = barcode
+                const result = await tryDecode(barcodeCanvas);
+                
+                processing.classList.remove('show');
+                
+                if (result) {
+                    showResults(result);
+                } else {
+                    errorMessage.classList.add('show');
+                }
+            } catch (error) {
+                processing.classList.remove('show');
+                console.error('Analysis error:', error);
+                errorMessage.classList.add('show');
+            }
+        });
+        
+        function applyPerspectiveCorrection(outputHeight = 150, verticalCrop = 1.0) {
+            const w = canvas.width / zoomLevel;
+            const h = canvas.height / zoomLevel;
+            
+            const outputWidth = 1000;
+            
+            const outputCanvas = document.createElement('canvas');
+            outputCanvas.width = outputWidth;
+            outputCanvas.height = outputHeight;
+            const outCtx = outputCanvas.getContext('2d');
+            
+            // Prepare source
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = w;
+            tempCanvas.height = h;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            tempCtx.save();
+            tempCtx.translate(w / 2, h / 2);
+            tempCtx.rotate(rotation * Math.PI / 180);
+            if (flipH) tempCtx.scale(-1, 1);
+            tempCtx.drawImage(originalImage, -w / 2, -h / 2, w, h);
+            tempCtx.restore();
+            
+            const imageData = tempCtx.getImageData(0, 0, w, h);
+            const srcData = imageData.data;
+            const destImageData = outCtx.createImageData(outputWidth, outputHeight);
+            const destData = destImageData.data;
+            
+            // Bilinear interpolation with optional vertical crop
+            for (let y = 0; y < outputHeight; y++) {
+                for (let x = 0; x < outputWidth; x++) {
+                    const nx = x / outputWidth;
+                    const ny = (y / outputHeight) * verticalCrop; // Crop vertically if needed
+                    
+                    const top = lerp2D(
+                        corners.tl.x * w, corners.tl.y * h,
+                        corners.tr.x * w, corners.tr.y * h,
+                        nx
+                    );
+                    const bottom = lerp2D(
+                        corners.bl.x * w, corners.bl.y * h,
+                        corners.br.x * w, corners.br.y * h,
+                        nx
+                    );
+                    const srcPos = lerp2D(top.x, top.y, bottom.x, bottom.y, ny);
+                    
+                    const srcX = Math.floor(srcPos.x);
+                    const srcY = Math.floor(srcPos.y);
+                    
+                    if (srcX >= 0 && srcX < w && srcY >= 0 && srcY < h) {
+                        const srcIdx = (srcY * w + srcX) * 4;
+                        const destIdx = (y * outputWidth + x) * 4;
+                        
+                        destData[destIdx] = srcData[srcIdx];
+                        destData[destIdx + 1] = srcData[srcIdx + 1];
+                        destData[destIdx + 2] = srcData[srcIdx + 2];
+                        destData[destIdx + 3] = 255;
+                    }
+                }
+            }
+            
+            outCtx.putImageData(destImageData, 0, 0);
+            
+            // Apply image enhancement for barcode reading
+            if (outputHeight === 150) {
+                return enhanceForDecoding(outputCanvas);
+            }
+            
+            return outputCanvas;
+        }
+        
+        function enhanceForDecoding(srcCanvas) {
+            const enhanced = document.createElement('canvas');
+            enhanced.width = srcCanvas.width;
+            enhanced.height = srcCanvas.height;
+            const ctx = enhanced.getContext('2d');
+            
+            ctx.drawImage(srcCanvas, 0, 0);
+            
+            const imageData = ctx.getImageData(0, 0, enhanced.width, enhanced.height);
+            const data = imageData.data;
+            
+            // Convert to grayscale and increase contrast
+            for (let i = 0; i < data.length; i += 4) {
+                const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+                
+                // Increase contrast
+                const contrasted = ((gray - 128) * 1.5) + 128;
+                const clamped = Math.max(0, Math.min(255, contrasted));
+                
+                data[i] = data[i + 1] = data[i + 2] = clamped;
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+            return enhanced;
+        }
+        
+        function lerp2D(x1, y1, x2, y2, t) {
+            return {
+                x: x1 + (x2 - x1) * t,
+                y: y1 + (y2 - y1) * t
+            };
+        }
+        
+        async function tryDecode(canvas) {
+            try {
+                const result = await codeReader.decodeFromCanvas(canvas);
+                if (result && result.text) {
+                    const cleaned = result.text.replace(/\D/g, '');
+                    if (cleaned.length === 24) {
+                        return cleaned;
+                    }
+                }
+            } catch (e) {
+                console.log('Decode failed:', e);
+            }
+            return null;
+        }
+        
+        // Manual entry - shows full corrected image with text
+        manualEntryBtn.addEventListener('click', () => {
+            errorMessage.classList.remove('show');
+            
+            // Generate full corrected image with text region
+            const fullCanvas = applyPerspectiveCorrection(300); // Include text
+            manualEntryPhoto.src = fullCanvas.toDataURL();
+            
+            manualEntry.classList.add('show');
+            manualDigits.value = '';
+            manualDigits.focus();
+        });
+        
+        cancelManualBtn.addEventListener('click', () => {
+            manualEntry.classList.remove('show');
+            errorMessage.classList.add('show');
+        });
+        
+        processManualBtn.addEventListener('click', () => {
+            const input = manualDigits.value.replace(/\D/g, '');
+            
+            if (input.length !== 14) {
+                alert('Please enter exactly 14 digits');
+                return;
+            }
+            
+            manualEntry.classList.remove('show');
+            
+            document.getElementById('result-first-14').textContent = formatFirst14(input);
+            document.getElementById('result-last-10').textContent = '[Requires barcode scan]';
+            document.getElementById('result-full-24').textContent = input + ' + [10 more digits]';
+            
+            results.classList.add('show');
+            
+            const note = document.createElement('div');
+            note.id = 'manual-note';
+            note.style.cssText = 'background: rgba(255,152,0,0.1); padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #ff9800;';
+            note.innerHTML = `
+                <strong>⚠️ Note:</strong> Manual entry shows first 14 digits. 
+                Last 10 are in the barcode bars - try adjusting grid or wait for Pixel 8 Pro!
+            `;
+            
+            const existing = document.getElementById('manual-note');
+            if (existing) existing.remove();
+            results.appendChild(note);
+        });
+        
+        manualDigits.addEventListener('input', (e) => {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length > 14) value = value.substring(0, 14);
+            
+            if (value.length > 4) value = value.substring(0, 4) + '-' + value.substring(4);
+            if (value.length > 12) value = value.substring(0, 12) + '-' + value.substring(12);
+            if (value.length > 14) value = value.substring(0, 14) + '-' + value.substring(14);
+            
+            e.target.value = value;
+        });
+        
+        function showResults(barcode) {
+            const first14 = barcode.substring(0, 14);
+            const last10 = barcode.substring(14, 24);
+            
+            document.getElementById('result-first-14').textContent = formatFirst14(first14);
+            document.getElementById('result-last-10').textContent = last10;
+            document.getElementById('result-full-24').textContent = barcode;
+            
+            const manualNote = document.getElementById('manual-note');
+            if (manualNote) manualNote.remove();
+            
+            results.classList.add('show');
+        }
+        
+        function formatFirst14(digits) {
+            return `${digits.substring(0, 4)}-${digits.substring(4, 11)}-${digits.substring(11, 12)}-${digits.substring(12, 14)}`;
+        }
+        
+        // Copy buttons
+        document.getElementById('copy-full-btn').addEventListener('click', () => {
+            const text = document.getElementById('result-full-24').textContent;
+            if (text.includes('[')) {
+                alert('Cannot copy - not fully decoded');
+                return;
+            }
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById('copy-full-btn');
+                const orig = btn.textContent;
+                btn.textContent = '✓ Copied!';
+                setTimeout(() => btn.textContent = orig, 2000);
+            });
+        });
+        
+        document.getElementById('copy-last10-btn').addEventListener('click', () => {
+            const text = document.getElementById('result-last-10').textContent;
+            if (text.includes('[')) {
+                alert('Cannot copy - last 10 not available');
+                return;
+            }
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById('copy-last10-btn');
+                const orig = btn.textContent;
+                btn.textContent = '✓ Copied!';
+                setTimeout(() => btn.textContent = orig, 2000);
+            });
+        });
+        
+        document.getElementById('scan-another-btn').addEventListener('click', reset);
+        
+        function reset() {
+            previewContainer.classList.remove('show');
+            instruction.classList.remove('show');
+            gridToggleControls.style.display = 'none';
+            zoomControls.style.display = 'none';
+            rotationControls.style.display = 'none';
+            actionButtons.style.display = 'none';
+            results.classList.remove('show');
+            processing.classList.remove('show');
+            errorMessage.classList.remove('show');
+            manualEntry.classList.remove('show');
+            previewResult.classList.remove('show');
+            fileInput.value = '';
+            originalImage = null;
+            zoomLevel = 1;
+        }
+    </script>
+</body>
+</html>
