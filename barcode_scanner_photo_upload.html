@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <title>ITF Barcode Scanner - Photo Upload</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+        
+        #container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 20px 0;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #4CAF50;
+        }
+        
+        .header p {
+            font-size: 14px;
+            color: #999;
+        }
+        
+        .section {
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #4CAF50;
+        }
+        
+        .upload-area {
+            border: 3px dashed #444;
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-area:hover {
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.05);
+        }
+        
+        .upload-area.dragover {
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .upload-text {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .upload-subtext {
+            font-size: 12px;
+            color: #999;
+        }
+        
+        #file-input {
+            display: none;
+        }
+        
+        .preview-area {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .preview-area.show {
+            display: block;
+        }
+        
+        #preview-image {
+            width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        button {
+            flex: 1;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        button:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-secondary {
+            background: #666;
+        }
+        
+        .btn-danger {
+            background: #f44336;
+        }
+        
+        .btn-warning {
+            background: #ff9800;
+        }
+        
+        .processing {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        
+        .processing.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #444;
+            border-top: 4px solid #4CAF50;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .results {
+            display: none;
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .results.show {
+            display: block;
+        }
+        
+        .result-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .result-label {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 5px;
+        }
+        
+        .result-value {
+            font-size: 20px;
+            font-family: monospace;
+            color: #fff;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            word-break: break-all;
+        }
+        
+        .result-value.highlight {
+            font-size: 28px;
+            color: #4CAF50;
+            font-weight: 600;
+        }
+        
+        .error-message {
+            background: rgba(244, 67, 54, 0.1);
+            border: 2px solid #f44336;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .error-message.show {
+            display: block;
+        }
+        
+        .error-message h3 {
+            color: #f44336;
+            margin-bottom: 15px;
+        }
+        
+        .error-message ul {
+            margin-left: 20px;
+            line-height: 1.8;
+        }
+        
+        .manual-entry {
+            display: none;
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .manual-entry.show {
+            display: block;
+        }
+        
+        .manual-entry h3 {
+            color: #ff9800;
+            margin-bottom: 15px;
+        }
+        
+        .manual-entry input {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid #666;
+            border-radius: 8px;
+            color: white;
+            margin-bottom: 15px;
+        }
+        
+        .manual-entry input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        
+        .manual-entry .hint {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 15px;
+        }
+        
+        .rotation-controls {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .rotate-btn {
+            flex: 1;
+            padding: 10px;
+            background: #444;
+            border: 1px solid #666;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .tips {
+            background: rgba(255, 193, 7, 0.1);
+            border-left: 4px solid #FFC107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .tips h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #FFC107;
+        }
+        
+        .tips ul {
+            margin-left: 20px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div class="header">
+            <h1>📸 ITF Barcode Scanner</h1>
+            <p>Upload photos for analysis</p>
+        </div>
+        
+        <div class="tips">
+            <h3>📋 Best Photo Tips:</h3>
+            <ul>
+                <li>Use iPhone 3x zoom (telephoto lens)</li>
+                <li>Distance: 2-3 feet from barcode</li>
+                <li>Stand to the SIDE (20-30° angle), NOT overhead!</li>
+                <li>Tap barcode to focus before shooting</li>
+                <li>Good lighting - avoid shadows</li>
+                <li>Hold steady - use volume button to shoot</li>
+            </ul>
+        </div>
+        
+        <div class="section">
+            <h2>📤 Upload Barcode Photo</h2>
+            
+            <div class="upload-area" id="upload-area">
+                <div class="upload-icon">📷</div>
+                <div class="upload-text">Tap to select photo or drag & drop</div>
+                <div class="upload-subtext">JPEG, PNG, HEIC supported</div>
+            </div>
+            
+            <input type="file" id="file-input" accept="image/*">
+            
+            <div class="preview-area" id="preview-area">
+                <img id="preview-image" alt="Preview">
+                
+                <div class="rotation-controls">
+                    <button class="rotate-btn" id="rotate-left">↺ Rotate Left</button>
+                    <button class="rotate-btn" id="rotate-right">Rotate Right ↻</button>
+                    <button class="rotate-btn" id="flip-h">⇄ Flip</button>
+                </div>
+                
+                <div class="button-group">
+                    <button id="analyze-btn">🔍 Analyze Barcode</button>
+                    <button id="retake-btn" class="btn-secondary">🔄 Choose Different Photo</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="processing" id="processing">
+            <div class="spinner"></div>
+            <div>Analyzing barcode...</div>
+            <div style="font-size: 12px; color: #999; margin-top: 10px;">Trying multiple detection strategies</div>
+        </div>
+        
+        <div class="error-message" id="error-message">
+            <h3>❌ Could not detect barcode</h3>
+            <p style="margin-bottom: 15px;">The barcode couldn't be decoded automatically. This usually means:</p>
+            <ul>
+                <li>Photo angle too steep (try 20-30° from side, not overhead)</li>
+                <li>Barcode out of focus (tap barcode before shooting)</li>
+                <li>Poor lighting or shadows</li>
+                <li>Barcode is curved or damaged</li>
+            </ul>
+            <div class="button-group">
+                <button id="manual-entry-btn" class="btn-warning">✏️ Enter First 14 Digits Manually</button>
+                <button id="retake-from-error-btn" class="btn-secondary">📸 Try Different Photo</button>
+            </div>
+        </div>
+        
+        <div class="manual-entry" id="manual-entry">
+            <h3>✏️ Manual Entry</h3>
+            <p style="margin-bottom: 15px;">Enter the first 14 digits from the human-readable text below the barcode:</p>
+            
+            <div class="hint">Format: XXXX-XXXXXXX-X-XXX (14 digits total)</div>
+            
+            <input type="text" 
+                   id="manual-digits" 
+                   placeholder="Example: 5048-1754673-5-000"
+                   maxlength="17"
+                   pattern="[0-9-]*">
+            
+            <div class="button-group">
+                <button id="process-manual-btn">✓ Process These Digits</button>
+                <button id="cancel-manual-btn" class="btn-secondary">✗ Cancel</button>
+            </div>
+        </div>
+        
+        <div class="results" id="results">
+            <h2 style="color: #4CAF50; margin-bottom: 20px;">✓ Results</h2>
+            
+            <div class="result-item">
+                <div class="result-label">First 14 digits:</div>
+                <div class="result-value" id="result-first-14">—</div>
+            </div>
+            
+            <div class="result-item">
+                <div class="result-label">Last 10 digits:</div>
+                <div class="result-value highlight" id="result-last-10">—</div>
+            </div>
+            
+            <div class="result-item">
+                <div class="result-label">Full 24-digit barcode:</div>
+                <div class="result-value" id="result-full-24">—</div>
+            </div>
+            
+            <div class="button-group">
+                <button id="copy-full-btn">📋 Copy Full (24)</button>
+                <button id="copy-last10-btn" class="btn-secondary">📋 Copy Last 10</button>
+            </div>
+            
+            <button id="scan-another-btn" class="btn-secondary" style="margin-top: 15px; width: 100%;">📸 Scan Another</button>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
+    <script>
+        let codeReader;
+        let currentImage = null;
+        let rotation = 0;
+        let flipH = false;
+        
+        // Elements
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const previewArea = document.getElementById('preview-area');
+        const previewImage = document.getElementById('preview-image');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const retakeBtn = document.getElementById('retake-btn');
+        const processing = document.getElementById('processing');
+        const errorMessage = document.getElementById('error-message');
+        const manualEntry = document.getElementById('manual-entry');
+        const results = document.getElementById('results');
+        const rotateLeftBtn = document.getElementById('rotate-left');
+        const rotateRightBtn = document.getElementById('rotate-right');
+        const flipHBtn = document.getElementById('flip-h');
+        
+        const manualEntryBtn = document.getElementById('manual-entry-btn');
+        const retakeFromErrorBtn = document.getElementById('retake-from-error-btn');
+        const manualDigits = document.getElementById('manual-digits');
+        const processManualBtn = document.getElementById('process-manual-btn');
+        const cancelManualBtn = document.getElementById('cancel-manual-btn');
+        
+        const resultFirst14 = document.getElementById('result-first-14');
+        const resultLast10 = document.getElementById('result-last-10');
+        const resultFull24 = document.getElementById('result-full-24');
+        const copyFullBtn = document.getElementById('copy-full-btn');
+        const copyLast10Btn = document.getElementById('copy-last10-btn');
+        const scanAnotherBtn = document.getElementById('scan-another-btn');
+        
+        // Initialize
+        codeReader = new ZXing.BrowserMultiFormatReader();
+        
+        // Upload area click
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+        
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        
+        // Handle file
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('Please select an image file');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                currentImage = e.target.result;
+                rotation = 0;
+                flipH = false;
+                displayImage();
+                previewArea.classList.add('show');
+                errorMessage.classList.remove('show');
+                manualEntry.classList.remove('show');
+                results.classList.remove('show');
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // Display image with transformations
+        function displayImage() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            img.onload = () => {
+                if (rotation === 90 || rotation === 270) {
+                    canvas.width = img.height;
+                    canvas.height = img.width;
+                } else {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                }
+                
+                ctx.save();
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                
+                ctx.translate(centerX, centerY);
+                ctx.rotate(rotation * Math.PI / 180);
+                
+                if (flipH) {
+                    ctx.scale(-1, 1);
+                }
+                
+                ctx.drawImage(img, -img.width / 2, -img.height / 2);
+                ctx.restore();
+                
+                previewImage.src = canvas.toDataURL();
+            };
+            
+            img.src = currentImage;
+        }
+        
+        // Rotation controls
+        rotateLeftBtn.addEventListener('click', () => {
+            rotation = (rotation - 90 + 360) % 360;
+            displayImage();
+        });
+        
+        rotateRightBtn.addEventListener('click', () => {
+            rotation = (rotation + 90) % 360;
+            displayImage();
+        });
+        
+        flipHBtn.addEventListener('click', () => {
+            flipH = !flipH;
+            displayImage();
+        });
+        
+        // Analyze button
+        analyzeBtn.addEventListener('click', async () => {
+            processing.classList.add('show');
+            errorMessage.classList.remove('show');
+            results.classList.remove('show');
+            
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = previewImage;
+                
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                ctx.drawImage(img, 0, 0);
+                
+                const result = await tryDecode(canvas);
+                
+                processing.classList.remove('show');
+                
+                if (result) {
+                    showResults(result);
+                } else {
+                    errorMessage.classList.add('show');
+                }
+            } catch (error) {
+                processing.classList.remove('show');
+                console.error('Analysis error:', error);
+                errorMessage.classList.add('show');
+            }
+        });
+        
+        // Try to decode
+        async function tryDecode(canvas) {
+            try {
+                const result = await codeReader.decodeFromCanvas(canvas);
+                if (result && result.text) {
+                    const cleaned = result.text.replace(/\D/g, '');
+                    if (cleaned.length === 24) {
+                        return cleaned;
+                    }
+                }
+            } catch (e) {
+                // Decode failed
+            }
+            return null;
+        }
+        
+        // Manual entry button
+        manualEntryBtn.addEventListener('click', () => {
+            errorMessage.classList.remove('show');
+            manualEntry.classList.add('show');
+            manualDigits.value = '';
+            manualDigits.focus();
+        });
+        
+        // Cancel manual entry
+        cancelManualBtn.addEventListener('click', () => {
+            manualEntry.classList.remove('show');
+            errorMessage.classList.add('show');
+        });
+        
+        // Process manual entry
+        processManualBtn.addEventListener('click', () => {
+            const input = manualDigits.value.replace(/\D/g, '');
+            
+            if (input.length !== 14) {
+                alert('Please enter exactly 14 digits');
+                return;
+            }
+            
+            // For manual entry, we show what we have
+            // Note: We can't actually calculate the last 10 without decoding the bars
+            // But we can show the first 14 they entered
+            manualEntry.classList.remove('show');
+            
+            const formatted14 = formatFirst14(input);
+            
+            resultFirst14.textContent = formatted14;
+            resultLast10.textContent = '[Requires barcode scan]';
+            resultFull24.textContent = input + ' + [10 more digits from barcode]';
+            
+            results.classList.add('show');
+            
+            // Add note about limitation
+            const note = document.createElement('div');
+            note.style.cssText = 'background: rgba(255,152,0,0.1); padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #ff9800;';
+            note.innerHTML = `
+                <strong>⚠️ Note:</strong> Manual entry only shows the first 14 digits you entered. 
+                The last 10 digits are encoded in the barcode bars and require successful scanning to extract. 
+                Try taking another photo with better angle/lighting, or wait for your Pixel 8 Pro to arrive!
+            `;
+            
+            if (!document.getElementById('manual-note')) {
+                note.id = 'manual-note';
+                results.appendChild(note);
+            }
+        });
+        
+        // Retake from error
+        retakeFromErrorBtn.addEventListener('click', () => {
+            errorMessage.classList.remove('show');
+            fileInput.click();
+        });
+        
+        // Show results
+        function showResults(barcode) {
+            const first14 = barcode.substring(0, 14);
+            const last10 = barcode.substring(14, 24);
+            
+            const formatted14 = formatFirst14(first14);
+            
+            resultFirst14.textContent = formatted14;
+            resultLast10.textContent = last10;
+            resultFull24.textContent = barcode;
+            
+            // Remove manual note if exists
+            const manualNote = document.getElementById('manual-note');
+            if (manualNote) {
+                manualNote.remove();
+            }
+            
+            results.classList.add('show');
+        }
+        
+        // Format first 14
+        function formatFirst14(digits) {
+            return `${digits.substring(0, 4)}-${digits.substring(4, 11)}-${digits.substring(11, 12)}-${digits.substring(12, 14)}`;
+        }
+        
+        // Copy buttons
+        copyFullBtn.addEventListener('click', () => {
+            const text = resultFull24.textContent;
+            if (text.includes('[')) {
+                alert('Cannot copy - barcode not fully decoded');
+                return;
+            }
+            navigator.clipboard.writeText(text).then(() => {
+                const original = copyFullBtn.textContent;
+                copyFullBtn.textContent = '✓ Copied!';
+                setTimeout(() => copyFullBtn.textContent = original, 2000);
+            });
+        });
+        
+        copyLast10Btn.addEventListener('click', () => {
+            const text = resultLast10.textContent;
+            if (text.includes('[')) {
+                alert('Cannot copy - last 10 digits not available');
+                return;
+            }
+            navigator.clipboard.writeText(text).then(() => {
+                const original = copyLast10Btn.textContent;
+                copyLast10Btn.textContent = '✓ Copied!';
+                setTimeout(() => copyLast10Btn.textContent = original, 2000);
+            });
+        });
+        
+        // Retake/scan another
+        retakeBtn.addEventListener('click', reset);
+        scanAnotherBtn.addEventListener('click', reset);
+        
+        function reset() {
+            previewArea.classList.remove('show');
+            results.classList.remove('show');
+            processing.classList.remove('show');
+            errorMessage.classList.remove('show');
+            manualEntry.classList.remove('show');
+            fileInput.value = '';
+            currentImage = null;
+        }
+        
+        // Auto-format manual entry input
+        manualDigits.addEventListener('input', (e) => {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length > 14) {
+                value = value.substring(0, 14);
+            }
+            
+            // Auto-format with dashes
+            if (value.length > 4) {
+                value = value.substring(0, 4) + '-' + value.substring(4);
+            }
+            if (value.length > 12) {
+                value = value.substring(0, 12) + '-' + value.substring(12);
+            }
+            if (value.length > 14) {
+                value = value.substring(0, 14) + '-' + value.substring(14);
+            }
+            
+            e.target.value = value;
+        });
+    </script>
+</body>
+</html>
