@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Upload Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        
+        .upload-label {
+            display: block;
+            background: #4CAF50;
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        
+        .upload-label:active {
+            background: #45a049;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        #preview {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        #preview img {
+            max-width: 100%;
+            border-radius: 8px;
+            border: 2px solid #4CAF50;
+        }
+        
+        .info {
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>📸 Simple Upload Test</h1>
+    
+    <div class="info">
+        <strong>✅ This works WITHOUT JavaScript!</strong><br>
+        Pure HTML5 - no code needed!
+    </div>
+    
+    <label for="file-input" class="upload-label">
+        📸 TAP HERE TO TAKE PHOTO
+    </label>
+    <input type="file" id="file-input" accept="image/*" capture="environment" onchange="showPreview(this)">
+    
+    <div id="preview"></div>
+    
+    <script>
+        function showPreview(input) {
+            const preview = document.getElementById('preview');
+            
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    preview.innerHTML = `
+                        <div class="info">
+                            <strong>✅ Photo loaded!</strong><br>
+                            File: ${input.files[0].name}<br>
+                            Size: ${(input.files[0].size / 1024 / 1024).toFixed(2)} MB
+                        </div>
+                        <img src="${e.target.result}" alt="Preview">
+                        <div class="info" style="margin-top: 15px;">
+                            Now you can:
+                            <ul style="text-align: left; margin: 10px 0;">
+                                <li>Save this image to Photos</li>
+                                <li>Screenshot the barcode area</li>
+                                <li>Try the full scanner once JavaScript works</li>
+                            </ul>
+                        </div>
+                    `;
+                };
+                
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+    </script>
+</body>
+</html>
