@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PDF417 · 30 Barcodes</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f; --card: #1a1a24;
+    --accent: #e8ff47; --accent2: #47d4ff;
+    --text: #f0f0f0; --muted: #666680; --border: #2a2a3a;
+    --danger: #ff5f5f; --warning: #ffaa33;
+  }
+
+  html, body {
+    height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--text);
+    font-family: 'Syne', sans-serif;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+
+  /* ── ENTRY ── */
+  #entry-screen {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 2rem; background: var(--bg); z-index: 100;
+    transition: opacity 0.4s, transform 0.4s;
+  }
+  #entry-screen.hidden { opacity: 0; transform: translateY(-30px); pointer-events: none; }
+
+  .logo { font-size: 0.7rem; font-family: 'Space Mono', monospace; letter-spacing: 0.3em; color: var(--accent); margin-bottom: 2rem; text-transform: uppercase; }
+  h1 { font-size: clamp(1.8rem, 7vw, 2.6rem); font-weight: 800; line-height: 1.1; text-align: center; margin-bottom: 0.4rem; }
+  h1 span { color: var(--accent); }
+  .subtitle { font-size: 0.78rem; color: var(--muted); text-align: center; margin-bottom: 2.5rem; font-family: 'Space Mono', monospace; }
+
+  .input-wrap { width: 100%; max-width: 380px; position: relative; margin-bottom: 0.75rem; }
+  .input-label { font-size: 0.7rem; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; font-family: 'Space Mono', monospace; margin-bottom: 0.5rem; display: block; }
+
+  #code-input {
+    width: 100%; background: var(--card); border: 1.5px solid var(--border); border-radius: 12px;
+    padding: 1rem 3.5rem 1rem 1.25rem; font-size: 1rem; font-family: 'Space Mono', monospace;
+    color: var(--text); letter-spacing: 0.08em; outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s; -webkit-appearance: none;
+  }
+  #code-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232,255,71,0.12); }
+  #code-input.error { border-color: #ff4747; animation: shake 0.3s ease; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+
+  .char-count { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); font-family: 'Space Mono', monospace; font-size: 0.72rem; color: var(--muted); pointer-events: none; margin-top: 10px; }
+  .char-count.ready { color: var(--accent); }
+
+  .paste-btn { display: flex; align-items: center; gap: 0.4rem; width: 100%; max-width: 380px; padding: 0.5rem 1rem; background: transparent; border: 1px dashed var(--border); border-radius: 8px; color: var(--muted); font-family: 'Space Mono', monospace; font-size: 0.7rem; letter-spacing: 0.08em; cursor: pointer; transition: border-color 0.2s, color 0.2s; -webkit-appearance: none; margin-bottom: 0.5rem; }
+  .paste-btn:active { border-color: var(--accent); color: var(--accent); }
+  .paste-btn.success { border-color: var(--accent); color: var(--accent); }
+  .paste-btn.fail { border-color: #ff6b6b; color: #ff6b6b; }
+
+  #error-msg { font-size: 0.75rem; color: #ff6b6b; font-family: 'Space Mono', monospace; min-height: 1.2em; margin-bottom: 1rem; text-align: center; width: 100%; max-width: 380px; }
+
+  .generate-btn { width: 100%; max-width: 380px; padding: 1rem; background: var(--accent); color: #0a0a0f; border: none; border-radius: 12px; font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; cursor: pointer; transition: transform 0.15s, opacity 0.15s; -webkit-appearance: none; }
+  .generate-btn:active { transform: scale(0.97); opacity: 0.9; }
+  .generate-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── LOADING ── */
+  #loading-screen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; z-index: 150; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+  #loading-screen.active { opacity: 1; pointer-events: all; }
+  .loading-label { font-family: 'Space Mono', monospace; font-size: 0.75rem; color: var(--muted); letter-spacing: 0.15em; text-transform: uppercase; }
+  .loading-count { font-family: 'Space Mono', monospace; font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+
+  /* ── SWIPER ── */
+  #swiper-screen { position: fixed; inset: 0; display: flex; flex-direction: column; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
+  #swiper-screen.active { opacity: 1; pointer-events: all; }
+
+  .top-bar { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.25rem; background: var(--bg); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .back-btn { background: none; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 0.4rem 0.75rem; font-family: 'Space Mono', monospace; font-size: 0.72rem; cursor: pointer; -webkit-appearance: none; }
+  .back-btn:active { border-color: var(--accent); }
+  .counter { font-family: 'Space Mono', monospace; font-size: 0.9rem; color: var(--accent); font-weight: 700; }
+  .counter span { color: var(--muted); }
+
+  .progress-wrap { height: 4px; background: var(--border); flex-shrink: 0; }
+  .progress-fill { height: 100%; background: var(--accent); transition: width 0.25s ease; }
+
+  /* ── CARDS ── */
+  .viewport { flex: 1; overflow: hidden; position: relative; }
+  .cards-track { display: flex; height: 100%; will-change: transform; }
+  .cards-track.animate { transition: transform 0.32s cubic-bezier(0.25,0.46,0.45,0.94); }
+
+  .card { min-width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 1.25rem 1.25rem 0.5rem; gap: 1rem; flex-shrink: 0; }
+  .barcode-label { font-family: 'Space Mono', monospace; font-size: 0.65rem; letter-spacing: 0.15em; color: var(--muted); text-transform: uppercase; }
+
+  .barcode-box {
+    background: #fff; border-radius: 16px; padding: 0.75rem 1rem;
+    width: 100%; max-width: 340px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    position: relative; overflow: hidden;
+    min-height: 80px;
+    transition: opacity 0.6s ease;
+  }
+  .barcode-box img { width: 100%; height: auto; display: block; image-rendering: pixelated; transition: opacity 0.5s ease; }
+  /* Hidden state — overlay covers the barcode */
+  .barcode-box .hidden-overlay {
+    position: absolute; inset: 0;
+    background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+    border-radius: 14px;
+  }
+  .barcode-box .hidden-overlay.visible { opacity: 1; }
+  .hidden-overlay-text {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: #bbb;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .code-display { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 0.65rem 1rem; font-family: 'Space Mono', monospace; font-size: 0.78rem; letter-spacing: 0.08em; color: var(--text); width: 100%; max-width: 340px; text-align: center; word-break: break-all; }
+  .code-display .base { color: var(--muted); }
+  .code-display .suffix { color: var(--accent); font-weight: 700; }
+
+  /* ── BOTTOM PANEL ── */
+  .bottom-panel {
+    flex-shrink: 0; background: var(--bg); border-top: 1px solid var(--border);
+    padding: 0.75rem 1.25rem 1rem;
+    display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  }
+
+  .stopwatch-wrap { display: flex; align-items: center; justify-content: center; gap: 1.2rem; width: 100%; }
+
+  /* Ring */
+  .ring-wrap { position: relative; width: 5.5rem; height: 5.5rem; flex-shrink: 0; }
+  .ring-wrap svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring-bg   { fill: none; stroke: var(--border); stroke-width: 4; }
+  .ring-fill { fill: none; stroke: var(--accent2); stroke-width: 4; stroke-linecap: round; transition: stroke 0.3s; }
+  .ring-fill.urgent  { stroke: var(--danger); }
+  .ring-fill.break   { stroke: var(--warning); }
+  .ring-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+  .ring-seconds { font-family: 'Space Mono', monospace; font-size: 1.3rem; font-weight: 700; color: var(--text); line-height: 1; transition: color 0.3s; }
+  .ring-seconds.urgent { color: var(--danger); }
+  .ring-seconds.break  { color: var(--warning); }
+  .ring-label { font-family: 'Space Mono', monospace; font-size: 0.48rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 1px; }
+
+  /* Play button */
+  .play-btn {
+    width: 3.5rem; height: 3.5rem; border-radius: 50%; background: var(--accent);
+    border: none; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0;
+    transition: transform 0.15s, background 0.2s, box-shadow 0.2s;
+    -webkit-appearance: none; padding: 0;
+    box-shadow: 0 4px 20px rgba(232,255,71,0.3);
+  }
+  .play-btn:active { transform: scale(0.93); }
+  .play-btn.playing { background: var(--card); border: 2px solid var(--accent); box-shadow: 0 0 0 3px rgba(232,255,71,0.15); }
+  .play-btn svg { width: 18px; height: 18px; fill: #0a0a0f; display: block; }
+  .play-btn.playing svg { fill: var(--accent); }
+
+  /* Status label */
+  .status-label {
+    font-family: 'Space Mono', monospace; font-size: 0.6rem;
+    color: var(--muted); letter-spacing: 0.1em; text-align: center;
+    min-height: 0.9rem; transition: color 0.3s;
+  }
+  .status-label.break  { color: var(--warning); }
+  .status-label.hidden-state { color: var(--accent2); }
+</style>
+</head>
+<body>
+
+<!-- ENTRY -->
+<div id="entry-screen">
+  <div class="logo">PDF417 · 30 Barcodes</div>
+  <h1>Enter your<br><span>base code</span></h1>
+  <p class="subtitle">30 barcodes · 5s show · 15s hidden · breaks at 10 &amp; 20</p>
+
+  <div class="input-wrap">
+    <label class="input-label" for="code-input">Base Code</label>
+    <input id="code-input" type="tel" maxlength="28" placeholder="019490141861586840597798" autocomplete="off" inputmode="numeric">
+    <span class="char-count" id="char-count">0</span>
+  </div>
+  <button class="paste-btn" id="paste-btn" type="button">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+    <span id="paste-label">Paste from clipboard</span>
+  </button>
+  <div id="error-msg"></div>
+  <button class="generate-btn" id="gen-btn" disabled>Generate 30 Barcodes</button>
+</div>
+
+<!-- LOADING -->
+<div id="loading-screen">
+  <div class="loading-label">Rendering barcodes…</div>
+  <div class="loading-count" id="loading-count">0 / 30</div>
+</div>
+
+<!-- SWIPER -->
+<div id="swiper-screen">
+  <div class="top-bar">
+    <button class="back-btn" id="back-btn">← Back</button>
+    <div class="counter"><span id="current-num">1</span><span> / 30</span></div>
+    <div style="width:56px"></div>
+  </div>
+  <div class="progress-wrap"><div class="progress-fill" id="progress-fill"></div></div>
+
+  <div class="viewport" id="viewport">
+    <div class="cards-track" id="cards-track">
+      <div class="card" id="card-prev"></div>
+      <div class="card" id="card-curr"></div>
+      <div class="card" id="card-next"></div>
+    </div>
+  </div>
+
+  <div class="bottom-panel">
+    <div class="stopwatch-wrap">
+      <div class="ring-wrap">
+        <svg viewBox="0 0 52 52">
+          <circle class="ring-bg"   cx="26" cy="26" r="23"/>
+          <circle class="ring-fill" id="ring-fill" cx="26" cy="26" r="23"/>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-seconds" id="ring-seconds">20</div>
+          <div class="ring-label" id="ring-label">sec</div>
+        </div>
+      </div>
+      <button class="play-btn" id="play-btn">
+        <svg id="play-icon" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+      </button>
+    </div>
+    <div class="status-label" id="status-label">tap · swipe · or press play</div>
+  </div>
+</div>
+
+<script>
+// ── Constants ──
+const TOTAL        = 30;
+const SHOW_SECS    = 5;    // barcode visible
+const HIDE_SECS    = 15;   // barcode hidden (blank)
+const CYCLE_SECS   = SHOW_SECS + HIDE_SECS; // 20s total per barcode
+const BREAK_SECS   = 105;  // 1min 45s break after barcode 10 and 20
+const BREAK_AFTER  = [8, 18]; // 0-indexed: barcode 009 (idx 8) and 019 (idx 18)
+
+const CIRCUMFERENCE = 2 * Math.PI * 23;
+
+// ── DOM ──
+const entryScreen  = document.getElementById('entry-screen');
+const loadingScreen= document.getElementById('loading-screen');
+const swiperScreen = document.getElementById('swiper-screen');
+const codeInput    = document.getElementById('code-input');
+const charCount    = document.getElementById('char-count');
+const errorMsg     = document.getElementById('error-msg');
+const genBtn       = document.getElementById('gen-btn');
+const backBtn      = document.getElementById('back-btn');
+const pasteBtn     = document.getElementById('paste-btn');
+const pasteLabel   = document.getElementById('paste-label');
+const cardsTrack   = document.getElementById('cards-track');
+const currentNum   = document.getElementById('current-num');
+const progressFill = document.getElementById('progress-fill');
+const loadingCount = document.getElementById('loading-count');
+const cardPrev     = document.getElementById('card-prev');
+const cardCurr     = document.getElementById('card-curr');
+const cardNext     = document.getElementById('card-next');
+const viewport     = document.getElementById('viewport');
+const playBtn      = document.getElementById('play-btn');
+const playIcon     = document.getElementById('play-icon');
+const ringFill     = document.getElementById('ring-fill');
+const ringSeconds  = document.getElementById('ring-seconds');
+const ringLabel    = document.getElementById('ring-label');
+const statusLabel  = document.getElementById('status-label');
+
+ringFill.style.strokeDasharray  = CIRCUMFERENCE;
+ringFill.style.strokeDashoffset = CIRCUMFERENCE;
+
+// ── State ──
+let prerendered  = [];
+let currentIndex = 0;
+let baseCode     = '';
+let startX = 0, isDragging = false, dragOffset = 0;
+let isPlaying    = false;
+let playTimeout  = null;
+let rafId        = null;
+let tickStart    = null;
+let currentPhaseDuration = CYCLE_SECS; // total seconds for current wait phase
+let isBreak      = false;  // true during 1m45 break
+let barcodeHidden = false; // true during the 15s hidden phase
+
+const PLAY_ICON  = '<polygon points="5,3 19,12 5,21"/>';
+const PAUSE_ICON = '<rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/>';
+
+// ── Input ──
+codeInput.addEventListener('input', () => {
+  const val = codeInput.value.replace(/\D/g, '').slice(0, 28);
+  codeInput.value = val;
+  charCount.textContent = val.length;
+  charCount.className = 'char-count' + (val.length > 0 ? ' ready' : '');
+  genBtn.disabled = val.length === 0;
+  codeInput.classList.remove('error');
+  errorMsg.textContent = '';
+});
+
+genBtn.addEventListener('click', () => {
+  const val = codeInput.value.trim();
+  if (!val.length) { codeInput.classList.add('error'); errorMsg.textContent = 'Enter a base code.'; return; }
+  startGeneration(val);
+});
+
+// ── Paste ──
+pasteBtn.addEventListener('click', async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    const digits = text.replace(/\D/g, '').slice(0, 28);
+    if (!digits.length) { flashPaste('fail', 'Nothing to paste'); return; }
+    codeInput.value = digits;
+    codeInput.dispatchEvent(new Event('input'));
+    flashPaste('success', `✓ Pasted ${digits.length} digits`);
+  } catch { codeInput.focus(); flashPaste('fail', 'Tap input to paste manually'); }
+});
+function flashPaste(state, msg) {
+  pasteLabel.textContent = msg; pasteBtn.classList.add(state);
+  setTimeout(() => { pasteBtn.classList.remove(state); pasteLabel.textContent = 'Paste from clipboard'; }, 2000);
+}
+
+// ── bwip-js ──
+function loadBwipJs() {
+  return new Promise(resolve => {
+    if (window.bwipjs) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/bwip-js/4.5.1/bwip-js-min.js';
+    s.onload = resolve; document.head.appendChild(s);
+  });
+}
+function renderToDataURL(code) {
+  const c = document.createElement('canvas');
+  try { bwipjs.toCanvas(c, { bcid:'pdf417', text:code, scale:3, height:8, includetext:false, eclevel:2 }); return c.toDataURL(); }
+  catch { return null; }
+}
+
+async function startGeneration(base) {
+  baseCode = base; prerendered = [];
+  entryScreen.classList.add('hidden');
+  loadingScreen.classList.add('active');
+  await loadBwipJs();
+  for (let i = 1; i <= TOTAL; i++) {
+    prerendered.push(renderToDataURL(base + String(i).padStart(3, '0')));
+    loadingCount.textContent = `${i} / ${TOTAL}`;
+    if (i % 5 === 0) await new Promise(r => setTimeout(r, 0));
+  }
+  loadingScreen.classList.remove('active');
+  swiperScreen.classList.add('active');
+  currentIndex = 0; isBreak = false; barcodeHidden = false;
+  placeCards(0); updateUI();
+  setRingIdle(CYCLE_SECS);
+}
+
+// ── Card rendering ──
+function sfx(idx) { return String(idx + 1).padStart(3, '0'); }
+
+function cardHTML(pos) {
+  if (pos < 0 || pos >= TOTAL) return '';
+  const s = sfx(pos), dataURL = prerendered[pos];
+  return `
+    <div class="barcode-label">Barcode ${pos + 1} of ${TOTAL}</div>
+    <div class="barcode-box" id="bc-box-${pos}">
+      ${dataURL ? `<img src="${dataURL}" alt="${baseCode+s}">` : `<div style="color:#aaa;font-size:0.7rem;font-family:monospace">error</div>`}
+      <div class="hidden-overlay" id="bc-overlay-${pos}"><span class="hidden-overlay-text">scan complete</span></div>
+    </div>
+    <div class="code-display"><span class="base">${baseCode}</span><span class="suffix">${s}</span></div>`;
+}
+
+function placeCards(idx) {
+  cardPrev.innerHTML = cardHTML(idx - 1);
+  cardCurr.innerHTML = cardHTML(idx);
+  cardNext.innerHTML = cardHTML(idx + 1);
+  cardsTrack.classList.remove('animate');
+  cardsTrack.style.transform = 'translateX(-100%)';
+  void cardsTrack.offsetWidth;
+}
+
+function updateUI() {
+  currentNum.textContent = currentIndex + 1;
+  progressFill.style.width = `${((currentIndex + 1) / TOTAL) * 100}%`;
+}
+
+// Show or hide the barcode overlay on the current card
+function setBarcodeVisible(visible) {
+  barcodeHidden = !visible;
+  const overlay = document.getElementById(`bc-overlay-${currentIndex}`);
+  if (overlay) overlay.classList.toggle('visible', !visible);
+  // Update status
+  if (!isPlaying) return;
+  if (!visible) {
+    statusLabel.textContent = 'SCAN COMPLETE — next in 15s';
+    statusLabel.className = 'status-label hidden-state';
+  } else {
+    statusLabel.textContent = isBreak ? 'BREAK — resuming soon' : 'SCANNING WINDOW OPEN';
+    statusLabel.className = 'status-label' + (isBreak ? ' break' : '');
+  }
+}
+
+// ── Navigation ──
+function advance() {
+  if (currentIndex >= TOTAL - 1) { stopPlay(); return; }
+  cardsTrack.classList.add('animate');
+  cardsTrack.style.transform = 'translateX(-200%)';
+  setTimeout(() => { currentIndex++; placeCards(currentIndex); updateUI(); setBarcodeVisible(true); }, 320);
+}
+function retreat() {
+  if (currentIndex <= 0) return;
+  cardsTrack.classList.add('animate');
+  cardsTrack.style.transform = 'translateX(0%)';
+  setTimeout(() => { currentIndex--; placeCards(currentIndex); updateUI(); setBarcodeVisible(true); }, 320);
+}
+
+// ── Touch / swipe ──
+let tapMoved = false;
+viewport.addEventListener('touchstart', e => { tapMoved = false; dragStart(e.touches[0].clientX); }, {passive:true});
+viewport.addEventListener('touchmove',  e => { tapMoved = true;  dragMove(e.touches[0].clientX);  }, {passive:true});
+viewport.addEventListener('touchend',   () => {
+  const wasDrag = Math.abs(dragOffset) > 8; dragEnd();
+  if (!tapMoved || !wasDrag) { advance(); restartCycle(); }
+});
+viewport.addEventListener('mousedown', e => { dragStart(e.clientX); e.preventDefault(); });
+viewport.addEventListener('mousemove', e => { if (isDragging) dragMove(e.clientX); });
+viewport.addEventListener('mouseup',   () => { const wd = Math.abs(dragOffset)>8; dragEnd(); if (!wd) { advance(); restartCycle(); } });
+viewport.addEventListener('mouseleave', dragEnd);
+
+function dragStart(x) { startX=x; isDragging=true; dragOffset=0; cardsTrack.classList.remove('animate'); }
+function dragMove(x)  { if (!isDragging) return; dragOffset=x-startX; cardsTrack.style.transform=`translateX(calc(-100% + ${dragOffset}px))`; }
+function dragEnd() {
+  if (!isDragging) return; isDragging=false;
+  if (Math.abs(dragOffset)<=8) return;
+  const thr=viewport.offsetWidth*0.2;
+  cardsTrack.classList.add('animate');
+  if      (dragOffset<-thr && currentIndex<TOTAL-1) { cardsTrack.style.transform='translateX(-200%)'; setTimeout(()=>{ currentIndex++; placeCards(currentIndex); updateUI(); setBarcodeVisible(true); restartCycle(); },320); }
+  else if (dragOffset> thr && currentIndex>0)        { cardsTrack.style.transform='translateX(0%)';   setTimeout(()=>{ currentIndex--; placeCards(currentIndex); updateUI(); setBarcodeVisible(true); restartCycle(); },320); }
+  else                                               { cardsTrack.style.transform='translateX(-100%)'; }
+}
+
+document.addEventListener('keydown', e => {
+  if (!swiperScreen.classList.contains('active')) return;
+  if (e.key==='ArrowRight') { advance(); restartCycle(); }
+  if (e.key==='ArrowLeft')  { retreat(); restartCycle(); }
+});
+
+// ── Play / Pause ──
+playBtn.addEventListener('click', () => { isPlaying ? stopPlay() : startPlay(); });
+
+function startPlay() {
+  isPlaying = true;
+  playBtn.classList.add('playing');
+  playIcon.innerHTML = PAUSE_ICON;
+  setBarcodeVisible(true);
+  runShowPhase();
+}
+
+function stopPlay() {
+  isPlaying = false; isBreak = false; barcodeHidden = false;
+  playBtn.classList.remove('playing');
+  playIcon.innerHTML = PLAY_ICON;
+  clearTimeout(playTimeout); cancelAnimationFrame(rafId);
+  setBarcodeVisible(true);
+  setRingIdle(CYCLE_SECS);
+  statusLabel.textContent = 'tap · swipe · or press play';
+  statusLabel.className = 'status-label';
+}
+
+function restartCycle() {
+  if (!isPlaying) return;
+  isBreak = false; barcodeHidden = false;
+  clearTimeout(playTimeout); cancelAnimationFrame(rafId);
+  setBarcodeVisible(true);
+  runShowPhase();
+}
+
+// Phase 1: show barcode for 5s
+function runShowPhase() {
+  isBreak = false; barcodeHidden = false;
+  setBarcodeVisible(true);
+  statusLabel.textContent = 'SCANNING WINDOW OPEN';
+  statusLabel.className = 'status-label';
+  currentPhaseDuration = CYCLE_SECS; // ring shows full 20s countdown
+  startTick(CYCLE_SECS);
+  // After 5s, hide the barcode
+  clearTimeout(playTimeout);
+  playTimeout = setTimeout(() => {
+    runHidePhase();
+  }, SHOW_SECS * 1000);
+}
+
+// Phase 2: hide barcode for 15s (or start break), then advance
+function runHidePhase() {
+  setBarcodeVisible(false);
+  if (BREAK_AFTER.includes(currentIndex)) {
+    // This is a break barcode — start the break immediately during hide phase
+    runBreakPhase();
+  } else {
+    // Normal hide: wait 15s then advance
+    clearTimeout(playTimeout);
+    playTimeout = setTimeout(() => {
+      if (currentIndex >= TOTAL - 1) { stopPlay(); return; }
+      advance();
+      setTimeout(() => { if (isPlaying) runShowPhase(); }, 340);
+    }, HIDE_SECS * 1000);
+  }
+}
+
+// Break phase: stay on current barcode (hidden), wait 1m45, THEN advance and show next
+function runBreakPhase() {
+  isBreak = true;
+  setBarcodeVisible(false);
+  statusLabel.textContent = 'BREAK — next group in 1:45';
+  statusLabel.className = 'status-label break';
+  currentPhaseDuration = BREAK_SECS;
+  startTick(BREAK_SECS);
+  clearTimeout(playTimeout);
+  playTimeout = setTimeout(() => {
+    isBreak = false;
+    if (!isPlaying) return;
+    if (currentIndex >= TOTAL - 1) { stopPlay(); return; }
+    advance();
+    setTimeout(() => { if (isPlaying) runShowPhase(); }, 340);
+  }, BREAK_SECS * 1000);
+}
+
+// ── Ring animation ──
+function startTick(totalSecs) {
+  cancelAnimationFrame(rafId);
+  currentPhaseDuration = totalSecs;
+  tickStart = performance.now();
+  function frame(now) {
+    const elapsed   = (now - tickStart) / 1000;
+    const remaining = Math.max(0, totalSecs - elapsed);
+    updateRing(remaining, totalSecs);
+    if (remaining > 0) rafId = requestAnimationFrame(frame);
+  }
+  rafId = requestAnimationFrame(frame);
+}
+
+function updateRing(remaining, total) {
+  const pct    = remaining / total;
+  const offset = CIRCUMFERENCE * (1 - pct);
+  ringFill.style.strokeDashoffset = offset;
+
+  // Display: if break show M:SS, else just seconds
+  if (isBreak) {
+    const m = Math.floor(remaining / 60);
+    const s = Math.ceil(remaining % 60);
+    ringSeconds.textContent = `${m}:${String(s).padStart(2,'0')}`;
+    ringLabel.textContent = 'break';
+    ringFill.className  = 'ring-fill break';
+    ringSeconds.className = 'ring-seconds break';
+  } else {
+    ringSeconds.textContent = Math.ceil(remaining);
+    ringLabel.textContent = barcodeHidden ? 'hidden' : 'sec';
+    const urgent = remaining <= 5 && !barcodeHidden;
+    ringFill.className  = 'ring-fill'   + (urgent ? ' urgent' : '');
+    ringSeconds.className = 'ring-seconds' + (urgent ? ' urgent' : '');
+  }
+}
+
+function setRingIdle(secs) {
+  cancelAnimationFrame(rafId);
+  ringFill.style.strokeDashoffset = 0; // full ring
+  ringSeconds.textContent = secs;
+  ringLabel.textContent = 'sec';
+  ringFill.className = 'ring-fill';
+  ringSeconds.className = 'ring-seconds';
+}
+
+// ── Back ──
+backBtn.addEventListener('click', () => {
+  stopPlay();
+  swiperScreen.classList.remove('active');
+  entryScreen.classList.remove('hidden');
+  prerendered = [];
+});
+</script>
+</body>
+</html>
